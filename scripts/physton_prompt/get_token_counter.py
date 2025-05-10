@@ -19,7 +19,6 @@ def get_token_counter(text, steps):
     try:
         from modules_forge import forge_version
         forge = True
-
     except:
         forge = False
 
@@ -27,11 +26,21 @@ def get_token_counter(text, steps):
     prompts = [prompt_text for step, prompt_text in flat_prompts]
 
     if forge:
-        cond_stage_model = sd_models.model_data.sd_model.cond_stage_model
-        token_count, max_length = max([model_hijack.get_prompt_lengths(prompt,cond_stage_model) for prompt in prompts],
-                                      key=lambda args: args[0])
+        # 🛡️ 防御性判断，防止模型未加载时报错
+        sd_model = getattr(sd_models.model_data, "sd_model", None)
+        if sd_model is None or not hasattr(sd_model, "cond_stage_model") or sd_model.cond_stage_model is None:
+            print("⚠️ [Prompt All-in-One] 模型尚未加载完成，跳过 token 计数。")
+            return {"token_count": 0, "max_length": 0}
+
+        cond_stage_model = sd_model.cond_stage_model
+        token_count, max_length = max(
+            [model_hijack.get_prompt_lengths(prompt, cond_stage_model) for prompt in prompts],
+            key=lambda args: args[0]
+        )
     else:
-        token_count, max_length = max([model_hijack.get_prompt_lengths(prompt) for prompt in prompts],
-                                      key=lambda args: args[0])
+        token_count, max_length = max(
+            [model_hijack.get_prompt_lengths(prompt) for prompt in prompts],
+            key=lambda args: args[0]
+        )
 
     return {"token_count": token_count, "max_length": max_length}
